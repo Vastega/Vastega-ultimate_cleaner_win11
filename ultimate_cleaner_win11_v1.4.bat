@@ -2,7 +2,7 @@
 :: ultimate_cleaner_win11_v1.4.bat
 :: Красочный интерактивный очиститель Windows 11 (25H2 и др.)
 :: Главное меню -> подменю -> подпункты
-:: Цвета: зелёный = безопасно, красный = ошибка, жёлтый = процесс, розовый = выполнено
+:: Цвета: зелёный = безопасно, красный = ошибка, жёлтый = новая версия, голубой = актуальная версия
 :: Требует прав администратора
 
 chcp 65001 >nul
@@ -17,9 +17,7 @@ set "C_GREEN=[92m"
 set "C_RED=[91m"
 set "C_YELLOW=[93m"
 set "C_CYAN=[96m"
-set "C_MAGENTA=[95m"
 set "C_RESET=[0m"
-set "C_ORANGE=[38;5;208m"
 
 :: Галочка и крест
 set "C_CHECK=[92m✔[0m"
@@ -106,64 +104,46 @@ echo Текущая версия: %currentVer%
 echo Доступная версия: !latestVer!
 
 if "%currentVer%"=="!latestVer!" (
-    echo.
-    echo %C_CYAN%╔════════════════════════════════════╗%C_RESET%
-    echo %C_CYAN%║     У ВАС АКТУАЛЬНАЯ ВЕРСИЯ ✅     ║%C_RESET%
-    echo %C_CYAN%╚════════════════════════════════════╝%C_RESET%
+    echo %C_CYAN%╔════════════════════════════════════════════╗%C_RESET%
+    echo %C_CYAN%║ У вас уже актуальная версия %currentVer% ✅ ║%C_RESET%
+    echo %C_CYAN%╚════════════════════════════════════════════╝%C_RESET%
 ) else (
-    echo.
-    echo %C_ORANGE%╔══════════════════════════════════════════════╗%C_RESET%
-    echo %C_ORANGE%║   НАЙДЕНА НОВАЯ ВЕРСИЯ: !latestVer! ⚠        ║%C_RESET%
-    echo %C_ORANGE%╚══════════════════════════════════════════════╝%C_RESET%
-    echo.
+    echo %C_YELLOW%╔════════════════════════════════════════════╗%C_RESET%
+    echo %C_YELLOW%║ Найдена новая версия: !latestVer! ⬇ ║%C_RESET%
+    echo %C_YELLOW%╚════════════════════════════════════════════╝%C_RESET%
     echo Загрузка новой версии...
 
-    :: Прогресс-бар загрузки
-    call :progressBar
+    set "newFile=ultimate_cleaner_win11_v!latestVer!.bat"
+    set "tempFile=%~dp0!newFile!"
 
-    set "tempFile=%~dp0update_temp.bat"
-    curl -s -L -o "!tempFile!" ^
-      https://raw.githubusercontent.com/Vastega/Vastega-ultimate_cleaner_win11/main/ultimate_cleaner_win11_v!latestVer!.bat
+    curl -s -L -w "%%{http_code}" -o "!tempFile!" ^
+      https://raw.githubusercontent.com/Vastega/Vastega-ultimate_cleaner_win11/main/!newFile! > "%~dp0curl_code.txt"
 
-    if exist "!tempFile!" (
-        echo.
-        echo %C_GREEN%╔════════════════════════════════════════════╗%C_RESET%
-        echo %C_GREEN%║    ОБНОВЛЕНИЕ УСПЕШНО УСТАНОВЛЕНО ✅     ║%C_RESET%
-        echo %C_GREEN%╚════════════════════════════════════════════╝%C_RESET%
+    set /p httpCode=<"%~dp0curl_code.txt"
+    del "%~dp0curl_code.txt"
 
-        echo Создание резервной копии...
-        ren "%~f0" "ultimate_cleaner_win11_v%currentVer%.bak"
+    if "!httpCode!"=="200" (
+        if exist "!tempFile!" (
+            echo %C_GREEN%╔════════════════════════════════════════════╗%C_RESET%
+            echo %C_GREEN%║ ОБНОВЛЕНИЕ УСПЕШНО УСТАНОВЛЕНО ✅ ║%C_RESET%
+            echo %C_GREEN%╚════════════════════════════════════════════╝%C_RESET%
+            echo Создание резервной копии старой версии...
+            
+            ren "%~f0" "ultimate_cleaner_win11_v%currentVer%.bak"
 
-        echo Обновление основного файла...
-        move /Y "!tempFile!" "%~dp0ultimate_cleaner_win11_v!latestVer!.bat" >nul
-
-        echo Запуск новой версии...
-        start "" "%~dp0ultimate_cleaner_win11_v!latestVer!.bat"
-        exit /b
+            echo Запуск новой версии...
+            start "" "!tempFile!"
+            exit /b
+        )
     ) else (
-        echo.
-        echo %C_RED%╔════════════════════════════════════╗%C_RESET%
-        echo %C_RED%║   ОШИБКА: НЕ УДАЛОСЬ ОБНОВИТЬ ✘   ║%C_RESET%
-        echo %C_RED%╚════════════════════════════════════╝%C_RESET%
+        echo %C_RED%╔════════════════════════════════════════════╗%C_RESET%
+        echo %C_RED%║ ❌ Ошибка: файл обновления не найден! ║%C_RESET%
+        echo %C_RED%╚════════════════════════════════════════════╝%C_RESET%
     )
 )
 
 pause
 goto mainMenu
-
-:: === Прогресс-бар ===
-:progressBar
-setlocal EnableDelayedExpansion
-set "bar="
-for /L %%i in (1,1,20) do (
-    set "bar=!bar!#"
-    <nul set /p "=Загрузка: [!bar!....................] %%i0%%"
-    ping -n 2 localhost >nul
-    cls
-)
-echo Загрузка: [####################] 100%%
-endlocal
-exit /b
 
 :: === Полное удаление Edge ===
 :remEdge
