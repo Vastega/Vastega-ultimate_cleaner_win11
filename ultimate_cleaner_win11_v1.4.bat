@@ -18,8 +18,8 @@ set "C_RED=[91m"
 set "C_YELLOW=[93m"
 set "C_CYAN=[96m"
 set "C_MAGENTA=[95m"
-set "C_ORANGE=[38;5;208m"
 set "C_RESET=[0m"
+set "C_ORANGE=[38;5;208m"
 
 :: Галочка и крест
 set "C_CHECK=[92m✔[0m"
@@ -112,26 +112,33 @@ if "%currentVer%"=="!latestVer!" (
     echo %C_CYAN%╚════════════════════════════════════╝%C_RESET%
 ) else (
     echo.
-    echo %C_ORANGE%╔════════════════════════════════════╗%C_RESET%
-    echo %C_ORANGE%║   НАЙДЕНА НОВАЯ ВЕРСИЯ: !latestVer! ⚠   ║%C_RESET%
-    echo %C_ORANGE%╚════════════════════════════════════╝%C_RESET%
+    echo %C_ORANGE%╔══════════════════════════════════════════════╗%C_RESET%
+    echo %C_ORANGE%║   НАЙДЕНА НОВАЯ ВЕРСИЯ: !latestVer! ⚠        ║%C_RESET%
+    echo %C_ORANGE%╚══════════════════════════════════════════════╝%C_RESET%
+    echo.
     echo Загрузка новой версии...
 
-    set "newFile=ultimate_cleaner_win11_v!latestVer!.bat"
-    curl -s -L -o "%~dp0!newFile!" ^
-      https://raw.githubusercontent.com/Vastega/Vastega-ultimate_cleaner_win11/main/!newFile!
+    :: Прогресс-бар загрузки
+    call :progressBar
 
-    if exist "%~dp0!newFile!" (
+    set "tempFile=%~dp0update_temp.bat"
+    curl -s -L -o "!tempFile!" ^
+      https://raw.githubusercontent.com/Vastega/Vastega-ultimate_cleaner_win11/main/ultimate_cleaner_win11_v!latestVer!.bat
+
+    if exist "!tempFile!" (
         echo.
         echo %C_GREEN%╔════════════════════════════════════════════╗%C_RESET%
         echo %C_GREEN%║    ОБНОВЛЕНИЕ УСПЕШНО УСТАНОВЛЕНО ✅     ║%C_RESET%
         echo %C_GREEN%╚════════════════════════════════════════════╝%C_RESET%
-        echo Создание резервной копии старой версии...
-        
+
+        echo Создание резервной копии...
         ren "%~f0" "ultimate_cleaner_win11_v%currentVer%.bak"
 
+        echo Обновление основного файла...
+        move /Y "!tempFile!" "%~dp0ultimate_cleaner_win11_v!latestVer!.bat" >nul
+
         echo Запуск новой версии...
-        start "" "%~dp0!newFile!"
+        start "" "%~dp0ultimate_cleaner_win11_v!latestVer!.bat"
         exit /b
     ) else (
         echo.
@@ -143,6 +150,20 @@ if "%currentVer%"=="!latestVer!" (
 
 pause
 goto mainMenu
+
+:: === Прогресс-бар ===
+:progressBar
+setlocal EnableDelayedExpansion
+set "bar="
+for /L %%i in (1,1,20) do (
+    set "bar=!bar!#"
+    <nul set /p "=Загрузка: [!bar!....................] %%i0%%"
+    ping -n 2 localhost >nul
+    cls
+)
+echo Загрузка: [####################] 100%%
+endlocal
+exit /b
 
 :: === Полное удаление Edge ===
 :remEdge
