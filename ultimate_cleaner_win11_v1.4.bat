@@ -94,64 +94,47 @@ if "%CHOICE%"=="25" goto checkUpdate
 
 goto mainMenu
 
-:: === Проверка обновлений и автообновление ===
+:: === Проверка обновлений ===
 :checkUpdate
-echo.
 echo Проверка обновлений...
-set "latestVer="
-for /f "delims=" %%A in ('powershell -NoProfile -Command "try{(Invoke-RestMethod -Uri 'https://raw.githubusercontent.com/Vastega/Vastega-ultimate_cleaner_win11/main/version.txt' -UseBasicParsing).Trim()}catch{Write-Output 'ERROR'}"') do set "latestVer=%%A"
-
-if "%latestVer%"=="" (
-    call :boxRed "Ошибка: не удалось определить доступную версию."
-    pause
-    goto mainMenu
+for /f "tokens=* delims=" %%A in ('curl -s https://raw.githubusercontent.com/Vastega/Vastega-ultimate_cleaner_win11/main/version.txt') do (
+    set "latestVer=%%A"
 )
 
 echo Текущая версия: %currentVer%
 echo Доступная версия: !latestVer!
 
 if "%currentVer%"=="!latestVer!" (
-    call :boxBlue "У вас установлена актуальная версия v%currentVer%."
-    pause
-    goto mainMenu
-)
+    echo %C_CYAN%╔══════════════════════════════════════╗%C_RESET%
+    echo %C_CYAN%║ У вас уже актуальная версия %currentVer% ║%C_RESET%
+    echo %C_CYAN%╚══════════════════════════════════════╝%C_RESET%
+) else (
+    echo %C_YELLOW%╔══════════════════════════════════════╗%C_RESET%
+    echo %C_YELLOW%║ Найдена новая версия: !latestVer!     ║%C_RESET%
+    echo %C_YELLOW%╚══════════════════════════════════════╝%C_RESET%
+    echo Загрузка новой версии...
 
-call :boxOrange "Найдена новая версия: v!latestVer!"
+    set "newFile=ultimate_cleaner_win11_v!latestVer!.bat"
+    curl -s -L -o "%~dp0!newFile!" ^
+      https://raw.githubusercontent.com/Vastega/Vastega-ultimate_cleaner_win11/main/!newFile!
 
-:askUpdate
-set /p UANS="Обновить до v!latestVer!? (Д/Н): "
-if /I "%UANS%"=="Н" goto mainMenu
-if /I "%UANS%" NEQ "Д" goto askUpdate
+    if exist "%~dp0!newFile!" (
+        echo %C_GREEN%╔══════════════════════════════════════════════╗%C_RESET%
+        echo %C_GREEN%║ ✅ ОБНОВЛЕНИЕ УСПЕШНО УСТАНОВЛЕНО (v!latestVer!) ║%C_RESET%
+        echo %C_GREEN%╚══════════════════════════════════════════════╝%C_RESET%
 
-echo.
-echo Подготовка к загрузке...
-call :progressGradient
-
-set "newFile=ultimate_cleaner_win11_v!latestVer!.bat"
-set "downloadUrl=https://raw.githubusercontent.com/Vastega/Vastega-ultimate_cleaner_win11/main/%newFile%"
-set "dest=%~dp0%newFile%"
-
-echo Загрузка %newFile%...
-set "dlres="
-for /f "delims=" %%R in ('powershell -NoProfile -Command "try{Invoke-WebRequest -Uri '%downloadUrl%' -OutFile '%dest%' -UseBasicParsing -ErrorAction Stop; Write-Output 'DL_OK'}catch{Write-Output 'DL_ERR'}"') do set "dlres=%%R"
-
-if /I "%dlres%"=="DL_OK" (
-    if exist "%dest%" (
-        call :boxGreen "ОБНОВЛЕНИЕ УСПЕШНО УСТАНОВЛЕНО (v!latestVer!)"
         ren "%~f0" "ultimate_cleaner_win11_v%currentVer%.bak" >nul 2>&1
+
         echo Запуск новой версии...
-        start "" "%dest%"
+        start "" "%~dp0!newFile!"
         exit /b
     ) else (
-        call :boxRed "Ошибка: файл загружен, но не найден на диске."
-        pause
-        goto mainMenu
+        echo %C_RED%╔══════════════════════════════════════════╗%C_RESET%
+        echo %C_RED%║ ❌ Ошибка: не удалось загрузить обновление ║%C_RESET%
+        echo %C_RED%╚══════════════════════════════════════════╝%C_RESET%
     )
-) else (
-    call :boxRed "Ошибка загрузки: не удалось скачать новую версию."
-    pause
-    goto mainMenu
 )
+pause
 goto mainMenu
 
 :: === Полное удаление Edge ===
@@ -183,6 +166,7 @@ reg delete "HKLM\SOFTWARE\Microsoft\EdgeUpdate" /f >nul 2>&1
 reg delete "HKLM\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate" /f >nul 2>&1
 reg delete "HKCU\Software\Microsoft\EdgeUpdate" /f >nul 2>&1
 
+:: Проверка остаточных файлов/процессов
 set "edgeLeft=0"
 tasklist | find /i "msedge.exe" >nul && set "edgeLeft=1"
 if exist "%ProgramFiles(x86)%\Microsoft\Edge" set "edgeLeft=1"
@@ -204,46 +188,3 @@ echo [94m███████████████████████�
 echo [91m████████████████████████████████████████████████████████████████████████████████████████████████████████████████████[0
 pause
 exit /b
-
-:: === Цветные рамки ===
-:boxGreen
-echo %C_GREEN%╔════════════════════════════════════════════════════════╗%C_RESET%
-echo %C_GREEN%║ %~1                                                   %C_RESET%
-echo %C_GREEN%╚════════════════════════════════════════════════════════╝%C_RESET%
-goto :eof
-
-:boxRed
-echo %C_RED%╔════════════════════════════════════════════════════════╗%C_RESET%
-echo %C_RED%║ %~1                                                   %C_RESET%
-echo %C_RED%╚════════════════════════════════════════════════════════╝%C_RESET%
-goto :eof
-
-:boxOrange
-echo [38;5;208m╔════════════════════════════════════════════════════════╗[0m
-echo [38;5;208m║ %~1                                                   [0m
-echo [38;5;208m╚════════════════════════════════════════════════════════╝[0m
-goto :eof
-
-:boxBlue
-echo %C_CYAN%╔════════════════════════════════════════════════════════╗%C_RESET%
-echo %C_CYAN%║ %~1                                                   %C_RESET%
-echo %C_CYAN%╚════════════════════════════════════════════════════════╝%C_RESET%
-goto :eof
-
-:: === Симуляционный градиентный прогресс-бар ===
-:progressGradient
-setlocal EnableDelayedExpansion
-set "barLen=30"
-for /L %%p in (0,5,100) do (
-    set /a filled=(%%p * barLen) / 100
-    set "bar="
-    for /L %%i in (1,1,!filled!) do set "bar=!bar!█"
-    set /a empty=barLen-filled
-    for /L %%j in (1,1,!empty!) do set "bar=!bar! "
-    if %%p LSS 34 (set "col=%C_RED%") else if %%p LSS 67 (set "col=%C_YELLOW%") else (set "col=%C_GREEN%")
-    <nul set /p =!col![!bar!] %%p%% %C_RESET%`r
-    ping -n 1 127.0.0.1 >nul
-)
-echo.
-endlocal
-goto :eof
