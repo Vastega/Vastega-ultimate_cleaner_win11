@@ -96,89 +96,108 @@ goto mainMenu
 
 :: === Проверка обновлений ===
 :checkUpdate
+echo.
 echo Проверка обновлений...
-for /f "tokens=* delims=" %%A in ('curl -s https://raw.githubusercontent.com/Vastega/Vastega-ultimate_cleaner_win11/main/version.txt') do (
-    set "latestVer=%%A"
+set "verUrl=https://raw.githubusercontent.com/Vastega/Vastega-ultimate_cleaner_win11/main/version.txt"
+set "tmpVer=%TEMP%\uc_remote_version.txt"
+
+call :download "%verUrl%" "%tmpVer%"
+if errorlevel 1 (
+    echo.
+    echo %C_RED%╔══════════════════════════════════════════╗%C_RESET%
+    echo %C_RED%║  ❌ ОШИБКА: не удалось скачать version.txt  ║%C_RESET%
+    echo %C_RED%╚══════════════════════════════════════════╝%C_RESET%
+    pause
+    goto mainMenu
 )
 
+set "latestVer="
+for /f "usebackq delims=" %%A in ("%tmpVer%") do (
+    set "latestVer=%%A"
+    goto gotLatest
+)
+:gotLatest
+
+if not defined latestVer (
+    echo.
+    echo %C_RED%╔══════════════════════════════════════════╗%C_RESET%
+    echo %C_RED%║  ❌ ОШИБКА: version.txt пуст или неверен   ║%C_RESET%
+    echo %C_RED%╚══════════════════════════════════════════╝%C_RESET%
+    pause
+    goto mainMenu
+)
+
+echo.
 echo Текущая версия: %currentVer%
 echo Доступная версия: !latestVer!
 
 if "%currentVer%"=="!latestVer!" (
+    echo.
     echo %C_CYAN%╔══════════════════════════════════════╗%C_RESET%
-    echo %C_CYAN%║ У вас уже актуальная версия %currentVer% ║%C_RESET%
+    echo %C_CYAN%║   У вас установлена актуальная версия   ║%C_RESET%
     echo %C_CYAN%╚══════════════════════════════════════╝%C_RESET%
-) else (
-    echo %C_YELLOW%╔══════════════════════════════════════╗%C_RESET%
-    echo %C_YELLOW%║ Найдена новая версия: !latestVer!     ║%C_RESET%
-    echo %C_YELLOW%╚══════════════════════════════════════╝%C_RESET%
-    echo Загрузка новой версии...
-
-    set "newFile=ultimate_cleaner_win11_v!latestVer!.bat"
-    curl -s -L -o "%~dp0!newFile!" ^
-      https://raw.githubusercontent.com/Vastega/Vastega-ultimate_cleaner_win11/main/!newFile!
-
-    if exist "%~dp0!newFile!" (
-        echo %C_GREEN%╔══════════════════════════════════════════════╗%C_RESET%
-        echo %C_GREEN%║ ✅ ОБНОВЛЕНИЕ УСПЕШНО УСТАНОВЛЕНО (v!latestVer!) ║%C_RESET%
-        echo %C_GREEN%╚══════════════════════════════════════════════╝%C_RESET%
-
-        ren "%~f0" "ultimate_cleaner_win11_v%currentVer%.bak" >nul 2>&1
-
-        echo Запуск новой версии...
-        start "" "%~dp0!newFile!"
-        exit /b
-    ) else (
-        echo %C_RED%╔══════════════════════════════════════════╗%C_RESET%
-        echo %C_RED%║ ❌ Ошибка: не удалось загрузить обновление ║%C_RESET%
-        echo %C_RED%╚══════════════════════════════════════════╝%C_RESET%
-    )
+    del /q "%tmpVer%" >nul 2>&1
+    pause
+    goto mainMenu
 )
-pause
-goto mainMenu
+
+echo.
+echo %C_YELLOW%╔══════════════════════════════════════╗%C_RESET%
+echo %C_YELLOW%║   Найдена новая версия: !latestVer!    ║%C_RESET%
+echo %C_YELLOW%╚══════════════════════════════════════╝%C_RESET%
+echo.
+set /p "doUpd=Обновить сейчас до v!latestVer!? (Д/Н): "
+if /I NOT "%doUpd%"=="Д" (
+    del /q "%tmpVer%" >nul 2>&1
+    goto mainMenu
+)
+
+set "newFileName=ultimate_cleaner_win11_v!latestVer!.bat"
+set "newUrl=https://raw.githubusercontent.com/Vastega/Vastega-ultimate_cleaner_win11/main/%newFileName%"
+set "dest=%~dp0%newFileName%"
+
+echo Загрузка %newFileName% ...
+call :download "%newUrl%" "%dest%"
+if errorlevel 1 (
+    echo.
+    echo %C_RED%╔══════════════════════════════════════════╗%C_RESET%
+    echo %C_RED%║  ❌ Ошибка: не удалось скачать новую версию ║%C_RESET%
+    echo %C_RED%╚══════════════════════════════════════════╝%C_RESET%
+    del /q "%tmpVer%" >nul 2>&1
+    pause
+    goto mainMenu
+)
+
+for %%I in ("%dest%") do set "fsz=%%~zI"
+if "%fsz%"=="0" (
+    echo.
+    echo %C_RED%╔══════════════════════════════════════════╗%C_RESET%
+    echo %C_RED%║  ❌ Ошибка: файл нулевого размера           ║%C_RESET%
+    echo %C_RED%╚══════════════════════════════════════════╝%C_RESET%
+    del /q "%dest%" >nul 2>&1
+    del /q "%tmpVer%" >nul 2>&1
+    pause
+    goto mainMenu
+)
+
+echo.
+echo %C_GREEN%╔══════════════════════════════════════════════╗%C_RESET%
+echo %C_GREEN%║   ✅ ОБНОВЛЕНИЕ УСПЕШНО УСТАНОВЛЕНО (v!latestVer!)   ║%C_RESET%
+echo %C_GREEN%╚══════════════════════════════════════════════╝%C_RESET%
+echo Создание резервной копии текущей версии...
+ren "%~f0" "ultimate_cleaner_win11_v%currentVer%.bak" >nul 2>&1
+
+echo Запуск новой версии...
+start "" "%dest%"
+
+del /q "%tmpVer%" >nul 2>&1
+exit /b 0
 
 :: === Полное удаление Edge ===
 :remEdge
 echo Полное удаление Microsoft Edge...
 taskkill /F /IM msedge.exe >nul 2>&1
-taskkill /F /IM msedgewebview2.exe >nul 2>&1
-taskkill /F /IM msedgeupdate.exe >nul 2>&1
-taskkill /F /IM MicrosoftEdgeUpdate.exe >nul 2>&1
-sc stop edgeupdate >nul 2>&1
-sc config edgeupdate start= disabled >nul 2>&1
-sc stop edgeupdatem >nul 2>&1
-sc config edgeupdatem start= disabled >nul 2>&1
-powershell -command "Get-AppxPackage *Microsoft.MicrosoftEdge* | Remove-AppxPackage -AllUsers" >nul 2>&1
-powershell -command "Get-AppxProvisionedPackage -Online | where {$_.DisplayName -like '*Microsoft.MicrosoftEdge*'} | Remove-AppxProvisionedPackage -Online" >nul 2>&1
-rd /s /q "%ProgramFiles(x86)%\Microsoft\Edge" >nul 2>&1
-rd /s /q "%ProgramFiles(x86)%\Microsoft\EdgeUpdate" >nul 2>&1
-rd /s /q "%ProgramFiles(x86)%\Microsoft\EdgeCore" >nul 2>&1
-rd /s /q "%ProgramFiles%\Microsoft\Edge" >nul 2>&1
-rd /s /q "%ProgramFiles%\Microsoft\EdgeUpdate" >nul 2>&1
-rd /s /q "%ProgramFiles%\Microsoft\EdgeCore" >nul 2>&1
-rd /s /q "%LOCALAPPDATA%\Microsoft\Edge" >nul 2>&1
-rd /s /q "%LOCALAPPDATA%\Microsoft\EdgeUpdate" >nul 2>&1
-rd /s /q "%LOCALAPPDATA%\Microsoft\EdgeCore" >nul 2>&1
-rd /s /q "%ProgramFiles(x86)%\Microsoft\EdgeWebView" >nul 2>&1
-rd /s /q "%ProgramFiles%\Microsoft\EdgeWebView" >nul 2>&1
-rd /s /q "%LOCALAPPDATA%\Microsoft\EdgeWebView" >nul 2>&1
-reg delete "HKLM\SOFTWARE\Microsoft\EdgeUpdate" /f >nul 2>&1
-reg delete "HKLM\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate" /f >nul 2>&1
-reg delete "HKCU\Software\Microsoft\EdgeUpdate" /f >nul 2>&1
-
-:: Проверка остаточных файлов/процессов
-set "edgeLeft=0"
-tasklist | find /i "msedge.exe" >nul && set "edgeLeft=1"
-if exist "%ProgramFiles(x86)%\Microsoft\Edge" set "edgeLeft=1"
-if exist "%ProgramFiles%\Microsoft\Edge" set "edgeLeft=1"
-if exist "%LOCALAPPDATA%\Microsoft\Edge" set "edgeLeft=1"
-
-if "!edgeLeft!"=="0" (
-    echo %C_CHECK% Microsoft Edge полностью удалён.
-) else (
-    echo %C_WARN% Microsoft Edge удалён частично, остались следы.
-)
-pause
+...
 goto mainMenu
 
 :endFlag
@@ -188,3 +207,26 @@ echo [94m███████████████████████�
 echo [91m████████████████████████████████████████████████████████████████████████████████████████████████████████████████████[0
 pause
 exit /b
+
+
+:: ---------- Функция скачивания ----------
+:download
+setlocal
+set "url=%~1"
+set "out=%~2"
+
+where curl >nul 2>&1
+if %errorlevel%==0 (
+    curl -s -L "%url%" -o "%out%"
+    if %errorlevel%==0 (
+        endlocal & exit /b 0
+    )
+)
+
+powershell -NoProfile -Command ^
+"try { (New-Object System.Net.WebClient).DownloadFile('%url%','%out%'); exit 0 } catch { exit 1 }"
+if %errorlevel%==0 (
+    endlocal & exit /b 0
+)
+
+endlocal & exit /b 1
